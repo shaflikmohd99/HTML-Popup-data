@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Interactive GIS Web Map</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        #map { height: 100vh; width: 100%; margin: 0; padding: 0; }
+        
+        /* Your custom popup CSS goes here! */
+        .custom-popup h3 { color: #2c3e50; border-bottom: 2px solid #27ae60; }
+        .custom-popup .status { color: #2980b9; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <script>
+        // 1. Initialize the map
+        var map = L.map('map').setView([40.7128, -74.0060], 13); // Change coordinates to your city
+
+        // 2. Add a Basemap (OpenStreetMap)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // 3. Define your custom HTML popup structure
+        function createCustomPopup(feature, layer) {
+            var popupContent = `
+                <div class="custom-popup">
+                    <h3>${feature.properties.Project_Name}</h3>
+                    <p>Status: <span class="status">${feature.properties.Status}</span></p>
+                    <p>Budget: $${feature.properties.Budget}</p>
+                </div>
+            `;
+            layer.bindPopup(popupContent);
+        }
+
+        // 4. Load your sample GeoJSON data (You would upload this file to GitHub)
+        // Note: For a real GitHub page, you would fetch the data.geojson file here.
+        // This is sample inline data to show you how it works:
+        var sampleData = {
+            "type": "Feature",
+            "properties": {"Project_Name": "Downtown Solar Roof", "Status": "Active", "Budget": "150,000"},
+            "geometry": {"type": "Point", "coordinates": [-74.0060, 40.7128]}
+        };
+
+        L.geoJSON(sampleData, {
+            onEachFeature: createCustomPopup
+        }).addTo(map);
+    </script>
+</body>
+</html>
