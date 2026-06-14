@@ -1,55 +1,90 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Interactive GIS Web Map</title>
+    <title>GIS Portfolio - Muallaf Spatial Distribution Analysis</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
     <style>
-        #map { height: 100vh; width: 100%; margin: 0; padding: 0; }
+        body, html, #map { margin: 0; padding: 0; height: 100%; width: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         
-        /* Your custom popup CSS goes here! */
-        .custom-popup h3 { color: #2c3e50; border-bottom: 2px solid #27ae60; }
-        .custom-popup .status { color: #2980b9; font-weight: bold; }
+        /* Branded Popup Styles */
+        .custom-popup { max-width: 280px; }
+        .custom-popup h3 { color: #2c3e50; margin: 0 0 2px 0; font-size: 16px; font-weight: 700; }
+        .custom-popup .prev-name { color: #7f8c8d; font-style: italic; font-size: 12px; margin-bottom: 10px; border-bottom: 1px solid #ecf0f1; padding-bottom: 6px; }
+        .custom-popup table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .custom-popup td { padding: 4px 0; vertical-align: top; }
+        .custom-popup td.label { font-weight: 600; color: #34495e; width: 45%; }
+        .custom-popup td.value { color: #2c3e50; }
+        .custom-popup .badge { display: inline-block; padding: 2px 6px; background-color: #27ae60; color: white; border-radius: 4px; font-size: 11px; font-weight: bold; }
     </style>
 </head>
 <body>
+
     <div id="map"></div>
 
     <script>
-        // 1. Initialize the map
-        var map = L.map('map').setView([40.7128, -74.0060], 13); // Change coordinates to your city
+        // 1. Initialize map view centered generally near Penang, Malaysia
+        var map = L.map('map').setView([5.35, 100.30], 11);
 
-        // 2. Add a Basemap (OpenStreetMap)
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
+        // 2. Add a clean, modern Light-themed basemap to let your point data stand out
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            attribution: '© OpenStreetMap contributors © CARTO'
         }).addTo(map);
 
-        // 3. Define your custom HTML popup structure
-        function createCustomPopup(feature, layer) {
-            var popupContent = `
-                <div class="custom-popup">
-                    <h3>${feature.properties.Project_Name}</h3>
-                    <p>Status: <span class="status">${feature.properties.Status}</span></p>
-                    <p>Budget: $${feature.properties.Budget}</p>
-                </div>
-            `;
-            layer.bindPopup(popupContent);
-        }
+        // 3. Create a feature group to collect points and handle automatic auto-zooming
+        var markerBounds = L.latLngBounds();
+        var markerGroup = L.featureGroup().addTo(map);
 
-        // 4. Load your sample GeoJSON data (You would upload this file to GitHub)
-        // Note: For a real GitHub page, you would fetch the data.geojson file here.
-        // This is sample inline data to show you how it works:
-        var sampleData = {
-            "type": "Feature",
-            "properties": {"Project_Name": "Downtown Solar Roof", "Status": "Active", "Budget": "150,000"},
-            "geometry": {"type": "Point", "coordinates": [-74.0060, 40.7128]}
-        };
+        // 4. Fetch and handle your exact data.json structure
+        fetch('data.json')
+            .then(response => response.json())
+            .then(data => {
+                
+                // Parse through Esri's native feature array structure
+                data.features.forEach(function(feature) {
+                    var attrs = feature.attributes;
+                    var geom = feature.geometry;
 
-        L.geoJSON(sampleData, {
-            onEachFeature: createCustomPopup
-        }).addTo(map);
+                    // Ensure record has valid coordinate geometry
+                    if (geom && geom.x && geom.y) {
+                        
+                        // Format income safely to local currency (RM)
+                        var incomeDisplay = attrs.Pendapatan > 0 ? 'RM ' + attrs.Pendapatan.toLocaleString() : 'No Data / Unemployed';
+                        
+                        // Construct the structured information window
+                        var popupContent = `
+                            <div class="custom-popup">
+                                <h3>${attrs.Nama_Islam || 'Unnamed Record'}</h3>
+                                <div class="prev-name">Orig: ${attrs.Nama_Sebel || 'N/A'}</div>
+                                <table>
+                                    <tr><td class="label">Gender / Race:</td><td class="value">${attrs.Jantina || 'N/A'} (${attrs.Bangsa || 'N/A'})</td></tr>
+                                    <tr><td class="label">Orig. Religion:</td><td class="value">${attrs.Agama_Asal || 'N/A'}</td></tr>
+                                    <tr><td class="label">Conversion Date:</td><td class="value">${attrs.Tarikh_Mas || 'N/A'}</td></tr>
+                                    <tr><td class="label">Occupation:</td><td class="value">${attrs.Pekerjaan || 'N/A'}</td></tr>
+                                    <tr><td class="label">Monthly Income:</td><td class="value"><span class="badge">${incomeDisplay}</span></td></tr>
+                                </table>
+                            </div>
+                        `;
+
+                        // Generate marker (Y = Latitude, X = Longitude)
+                        var marker = L.marker([geom.y, geom.x]).bindPopup(popupContent);
+                        markerGroup.addLayer(marker);
+                        
+                        // Extend map boundary calculations to include this point
+                        markerBounds.extend([geom.y, geom.x]);
+                    }
+                });
+
+                // Adjust the map viewport perfectly to frame all points dynamically
+                if (!markerBounds.isEmpty()) {
+                    map.fitBounds(markerBounds, { padding: [50, 50] });
+                }
+            })
+            .catch(error => console.error('Error executing data ingestion loop:', error));
     </script>
 </body>
 </html>
